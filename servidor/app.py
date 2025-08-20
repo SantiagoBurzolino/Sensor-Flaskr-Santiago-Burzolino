@@ -38,10 +38,46 @@ def sensor():
     
 
     db.commit()
-    
+
     cerrarConexion()  
 
     return jsonify({'resultado': 'OK'})
+
+@app.route("/api/sensores")
+def sensores():
+    args = request.args
+    pagina = int(args.get('page', '1'))
+    descartar = (pagina - 1) * resultados_por_pag
+    db = abrirConexion()
+    cursor = db.cursor()
+    cursor.execute("SELECT COUNT(*) AS cant FROM valores;")
+    cant = cursor.fetchone()['cant']
+    paginas = ceil(cant / resultados_por_pag) if cant else 1
+
+    if pagina < 1 or pagina > paginas:
+        cerrarConexion()
+        return jsonify({"error": f"Página inexistente: {pagina}"}), 400
+
+    cursor.execute("""SELECT id, nombre, valor FROM valores
+                      ORDER BY id DESC
+                      LIMIT ? OFFSET ?;""", (resultados_por_pag, descartar))
+    lista = cursor.fetchall()
+    cerrarConexion()
+
+    siguiente = url_for('sensores', page=pagina+1, _external=True) if pagina < paginas else None
+    anterior = url_for('sensores', page=pagina-1, _external=True) if pagina > 1 else None
+
+    info = {
+        'count': cant,
+        'pages': paginas,
+        'next': siguiente,
+        'prev': anterior
+    }
+    res = {'info': info, 'results': lista}
+    return jsonify(res)
+
+ 
+
 
 
 
